@@ -2,7 +2,7 @@ from typing import Optional
 from app.schemas.submission import SubmissionOut
 from sqlalchemy.orm import Session,joinedload
 from app.db import models
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from sqlalchemy import func
 
 def get_user_by_email(db: Session, email: str):
@@ -19,6 +19,19 @@ def submit_task(db: Session, mentee_id: int, task_id: int, reference_link: str, 
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise Exception("Task not found")
+    
+    # convert start_date into a datetime object
+    start_date = datetime.combine(start_date, datetime.min.time()) 
+    deadline = start_date + timedelta(days=task.deadline_days)
+    submitted_at = datetime.now()
+
+    # Check if the submission is late
+    if deadline >= submitted_at:
+        submitted_late = False
+    elif deadline + timedelta(hours=12) >= submitted_at:
+        submitted_late = True
+    else:
+        return "late submission not allowed"
 
     submission = models.Submission(
         mentee_id=mentee_id,
@@ -29,6 +42,7 @@ def submit_task(db: Session, mentee_id: int, task_id: int, reference_link: str, 
         submitted_at=date.today(),
         status="submitted",
         start_date=start_date,
+        submitted_late=submitted_late
     )
 
     db.add(submission)

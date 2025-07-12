@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.db import Base
@@ -45,6 +45,7 @@ class Submission(Base):
     start_date = Column(DateTime, nullable=False)
     approved_at = Column(DateTime, nullable=True)
     mentor_feedback = Column(Text, nullable=True)
+    submitted_late = Column(Boolean, default=False)
     mentee = relationship("User")
     task = relationship("Task")
 
