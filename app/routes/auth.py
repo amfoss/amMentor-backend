@@ -21,7 +21,6 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     new_user = models.User(
         email=user.email,
         name=user.name,
-        role=user.role
     )
     db.add(new_user)
     db.commit()

@@ -11,7 +11,7 @@ def get_user_by_email(db: Session, email: str):
 def get_task(db: Session, track_id: int, task_no: int):
     return db.query(models.Task).filter_by(track_id=track_id, task_no=task_no).first()
 
-def submit_task(db: Session, mentee_id: int, task_id: int, reference_link: str, start_date: date):
+def submit_task(db: Session, mentee_id: int, task_id: int, reference_link: str, start_date: date, commit_hash: str):
     existing = db.query(models.Submission).filter_by(mentee_id=mentee_id, task_id=task_id).first()
     if existing:
         return None  # Already submitted
@@ -42,7 +42,8 @@ def submit_task(db: Session, mentee_id: int, task_id: int, reference_link: str, 
         submitted_at=date.today(),
         status="submitted",
         start_date=start_date,
-        submitted_late=submitted_late
+        submitted_late=submitted_late,
+        commit_hash = commit_hash
     )
 
     db.add(submission)

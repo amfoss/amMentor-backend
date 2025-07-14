@@ -3,7 +3,7 @@ version: '3.9'
 services:
   backend:
     build: .
-    container_name: ammentor-backend
+    container_name: praveshan-ammentor-backend
     ports:
       - "8000:8000"
     env_file:
@@ -16,10 +16,10 @@ services:
 
   db:
     image: postgres:14
-    container_name: ammentor-db
+    container_name: praveshan-ammentor-db
     restart: always
     environment:
-      POSTGRES_DB: ammentor
+      POSTGRES_DB: praveshan-ammentor
       POSTGRES_USER: ammentor_user
       POSTGRES_PASSWORD: strongpassword123
       

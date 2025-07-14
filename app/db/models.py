@@ -9,6 +9,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
     role = Column(String, nullable=False)  # "mentor" or "mentee"
+    group_name = Column(String, nullable=False)
 
 class Track(Base):
     __tablename__ = "tracks"
@@ -48,6 +49,7 @@ class Submission(Base):
     submitted_late = Column(Boolean, default=False)
     mentee = relationship("User")
     task = relationship("Task")
+    commit_hash = Column(String, nullable=False)
 
 class MentorMenteeMap(Base):
     __tablename__ = "mentor_mentee_map"
