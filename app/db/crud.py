@@ -20,35 +20,28 @@ def submit_task(db: Session, mentee_id: int, task_id: int, reference_link: str, 
     if not task:
         raise Exception("Task not found")
     
-    # convert start_date into a datetime object
-    start_date = datetime.combine(start_date, datetime.min.time()) 
+    start_date = start_date
+    submitted_at = date.today()
     deadline = start_date + timedelta(days=task.deadline_days)
-    submitted_at = datetime.now()
 
-    # Check if the submission is late
     if deadline >= submitted_at:
-        submitted_late = False
-    elif deadline + timedelta(hours=12) >= submitted_at:
-        submitted_late = True
+        submission = models.Submission(
+            mentee_id=mentee_id,
+            task_id=task.id,
+            task_name=task.title,     
+            task_no=task.task_no,    
+            reference_link=reference_link,
+            submitted_at=date.today(),
+            status="submitted",
+            start_date=start_date,
+        )
+
+        db.add(submission)
+        db.commit()
+        db.refresh(submission)
+        return submission
     else:
         return "late submission not allowed"
-
-    submission = models.Submission(
-        mentee_id=mentee_id,
-        task_id=task.id,
-        task_name=task.title,     
-        task_no=task.task_no,    
-        reference_link=reference_link,
-        submitted_at=date.today(),
-        status="submitted",
-        start_date=start_date,
-        submitted_late=submitted_late
-    )
-
-    db.add(submission)
-    db.commit()
-    db.refresh(submission)
-    return submission
 
 def approve_submission(db: Session, submission_id: int, mentor_feedback: str, status: str):
     sub = db.query(models.Submission).filter_by(id=submission_id).first()

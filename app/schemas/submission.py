@@ -23,7 +23,6 @@ class SubmissionOut(BaseModel):
     approved_at: Optional[date] = None
     mentor_feedback: Optional[str] = None   
     start_date: date
-    submitted_late: bool
     class Config:
         orm_mode = True
 
