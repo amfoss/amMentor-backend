@@ -4,6 +4,13 @@ from sqlalchemy.orm import Session,joinedload
 from app.db import models
 from datetime import datetime, date, timedelta
 from sqlalchemy import func
+from app.db.db import SessionLocal
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import os
+
+SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+CREDS_FILE = "credentials.json" 
 
 def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
@@ -128,3 +135,35 @@ def get_submissions_for_user(db: Session, email: str, track_id: Optional[int] = 
         )
         for sub in submissions
     ]
+    
+def get_sheet_data():
+    creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
+    client = gspread.authorize(creds)
+    worksheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Praveshan Phase 3") # Change sheet name
+    expected_headers = ["Name", "Email Address"]
+    data = worksheet.get_all_records(expected_headers=expected_headers)
+    return data
+
+def sync_users_from_sheet():
+    db: Session = SessionLocal()
+    try:
+        rows = get_sheet_data() 
+        print(f"Loaded {len(rows)} rows from sheet.")
+        inserted_count = 0
+        for row in rows:
+            email = row.get("Email Address", "").strip()
+            name = row.get("Name", "").strip()
+            if not email or not name:
+                continue
+            if get_user_by_email(db, email):
+                continue 
+            user = models.User(name=name, email=email, role="mentee")
+            db.add(user)
+            inserted_count += 1
+
+        db.commit()
+        print(f"Inserted {inserted_count} new users.")
+    except Exception as e:
+        print(f"Error syncing users: {e}")
+    finally:
+        db.close()
