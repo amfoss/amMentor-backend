@@ -19,10 +19,11 @@ def submit_task(data: SubmissionCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Task not found")
 
     # 3. Submit
-    submission = crud.submit_task(db, mentee_id=mentee.id, task_id=task.id, reference_link=data.reference_link, start_date=data.start_date)
+    submission = crud.submit_task(db, mentee_id=mentee.id, task_id=task.id, reference_link=data.reference_link, start_date=data.start_date, commit_hash=data.commit_hash)
     if not submission:
         raise HTTPException(status_code=400, detail="Task already submitted")
-
+    if submission == "late submission not allowed":
+        raise HTTPException(status_code=400, detail="You cannot submit this task as the deadline has passed")
     return submission
 
 @router.patch("/approve-task", response_model=SubmissionOut)
