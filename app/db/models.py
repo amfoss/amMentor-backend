@@ -9,7 +9,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
     role = Column(String, nullable=False)  # "mentor" or "mentee"
-    group_name = Column(String, nullable=False)
+    group_name = Column(String, nullable=True)
 
 class Track(Base):
     __tablename__ = "tracks"
