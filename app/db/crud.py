@@ -10,7 +10,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 import os
 
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-CREDS_FILE = "credentials.json" 
+CREDS_FILE = "credentials.json"
 
 def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
@@ -22,6 +22,8 @@ def submit_task(db: Session, mentee_id: int, task_id: int, reference_link: str, 
     existing = db.query(models.Submission).filter_by(mentee_id=mentee_id, task_id=task_id).first()
     if existing:
         return None  # Already submitted
+    
+    mentee = db.query(models.User).filter(models.User.id == mentee_id).first()
 
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
@@ -53,9 +55,37 @@ def submit_task(db: Session, mentee_id: int, task_id: int, reference_link: str, 
         commit_hash = commit_hash
     )
 
+    credentials = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
+    client = gspread.authorize(credentials)
+    if(task.track_id == 1):
+        sheet = client.open("Copy of Praveshan 2025 Master DB").worksheet("S1 Submissions")
+        cell = sheet.find(mentee.name)
+        if not cell:
+            name_column = sheet.col_values(1)
+            row = len(name_column) + 1
+            sheet.update_cell(row, 1, mentee.name)
+            sheet.update_cell(row, task.task_no+2, commit_hash)
+        else:
+            row = cell.row
+            sheet.update_cell(row, task.task_no+2, commit_hash)
+    elif(task.track_id == 2):
+        sheet = client.open("Copy of Praveshan 2025 Master DB").worksheet("S2 Submissions")
+        cell = sheet.find(mentee.name)
+        if not cell:
+            name_column = sheet.col_values(1)
+            row = len(name_column) + 1
+            sheet.update_cell(row, 1, mentee.name)
+            sheet.update_cell(row, task.task_no+2, commit_hash)
+        else:
+            row = cell.row
+            sheet.update_cell(row, task.task_no+2, commit_hash)
+    
+    
+
     db.add(submission)
     db.commit()
     db.refresh(submission)
+    
     return submission
 
 def approve_submission(db: Session, submission_id: int, mentor_feedback: str, status: str):
