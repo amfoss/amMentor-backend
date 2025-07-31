@@ -89,7 +89,7 @@ jobs:
             sed -i 's|image: .*|image: $(echo $REGISTRY)/$(echo $IMAGE_NAME):$(echo $GITHUB_SHA | head -c7)|' docker-compose.yml
 
             # Pull the new backend image
-            docker-compose pull backend
+            docker compose pull backend
             
             # Stop and recreate ONLY the backend service with the new image
-            docker-compose up -d --no-deps backend
+            docker compose up -d --no-deps backend
