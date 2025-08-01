@@ -26,7 +26,10 @@ jobs:
     steps:
       - name: Checkout the repo 
         uses: actions/checkout@v2
-        
+      
+      - name: List files in repository
+        run: ls -laR
+      
       - name: Build container image
         # This now builds the image with both the commit tag and the 'latest' tag
         run: docker build -t $(echo $REGISTRY)/$(echo $IMAGE_NAME):$(echo $GITHUB_SHA | head -c7) -t $(echo $REGISTRY)/$(echo $IMAGE_NAME):latest .
