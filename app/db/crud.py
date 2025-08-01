@@ -168,7 +168,7 @@ def get_sheet_data():
     if not sheet_id:
         raise ValueError("GOOGLE_SHEET_ID environment variable not set.")
 
-    worksheet = client.open_by_key(sheet_id).worksheet("Form Responses 1")
+    worksheet = client.open_by_key(sheet_id).worksheet("Form Responses")
     expected_headers = ["Name", "Email Address"]
     data = worksheet.get_all_records(expected_headers=expected_headers)
     return data
