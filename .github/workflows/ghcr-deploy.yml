@@ -51,47 +51,48 @@ jobs:
           docker push $(echo $REGISTRY)/$(echo $IMAGE_NAME):$(echo $GITHUB_SHA | head -c7)
           docker push $(echo $REGISTRY)/$(echo $IMAGE_NAME):latest
         
-  # deploy:
-  #   runs-on: ubuntu-latest
-  #   needs: build_and_push
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build_and_push
     
-  #   steps:
-  #     - name: Checkout the repo 
-  #       uses: actions/checkout@v2
+    steps:
+      - name: Checkout the repo 
+        uses: actions/checkout@v2
 
-  #     - name: Copy docker-compose.yml to Droplet
-  #       uses: appleboy/scp-action@master
-  #       with:
-  #         host: ${{ secrets.HOST }}
-  #         username: ${{ secrets.USERNAME }}
-  #         key: ${{ secrets.SSHKEY }}
-  #         passphrase: ${{ secrets.PASSPHRASE }}
-  #         source: "docker-compose.yml"
-  #         target: "myapp"
+      - name: Copy docker-compose.yml to Droplet
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSHKEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+          source: "docker-compose.yml"
+          target: "myapp"
 
-  #     - name: Deploy to Digital Ocean droplet via SSH action
-  #       uses: appleboy/ssh-action@master
-  #       with:
-  #         host: ${{ secrets.HOST }}
-  #         username: ${{ secrets.USERNAME }}
-  #         key: ${{ secrets.SSHKEY }}
-  #         passphrase: ${{ secrets.PASSPHRASE }}
-  #         script: |
-  #           # Navigate to the app directory
-  #           cd myapp
+      - name: Deploy to Digital Ocean droplet via SSH action
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSHKEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+          envs: IMAGE_NAME,REGISTRY,{{ secrets.DIGITALOCEAN_ACCESS_TOKEN }},GITHUB_SHA
+          script: |
+            # Navigate to the app directory
+            cd myapp
 
-  #           # Create the .env file from the GitHub Secret
-  #           echo "${{ secrets.ENV_FILE }}" > .env
+            # Create the .env file from the GitHub Secret
+            echo "${{ secrets.DOT_ENV_FILE }}" > .env
             
-  #           # Login to registry
-  #           docker login -u ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} -p ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} registry.digitalocean.com
+            # Login to registry
+            docker login -u ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} -p ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} registry.digitalocean.com
             
-  #           # Update the image definition in docker-compose.yml to use the new tag
-  #           # This makes sure we run the exact version we just built
-  #           sed -i 's|image: .*|image: $(echo $REGISTRY)/$(echo $IMAGE_NAME):$(echo $GITHUB_SHA | head -c7)|' docker-compose.yml
+            # Update the image definition in docker-compose.yml to use the new tag
+            # This makes sure we run the exact version we just built
+            sed -i 's|image: .*|image: $(echo $REGISTRY)/$(echo $IMAGE_NAME):$(echo $GITHUB_SHA | head -c7)|' docker-compose.yml
 
-  #           # Pull the new backend image
-  #           docker compose pull backend
+            # Pull the new backend image
+            docker compose pull backend
             
-  #           # Stop and recreate ONLY the backend service with the new image
-  #           docker compose up -d --no-deps backend
+            # Stop and recreate ONLY the backend service with the new image
+            docker compose up -d --no-deps backend
