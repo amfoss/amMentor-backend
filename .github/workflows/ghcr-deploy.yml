@@ -80,9 +80,6 @@ jobs:
           script: |
             # Navigate to the app directory
             cd myapp
-
-            # Create the .env file from the GitHub Secret
-            echo "${{ secrets.DOT_ENV_FILE }}" > .env
             
             # Login to registry
             docker login -u ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} -p ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} registry.digitalocean.com
