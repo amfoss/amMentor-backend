@@ -2,7 +2,7 @@ from typing import Optional
 from app.schemas.submission import SubmissionOut
 from sqlalchemy.orm import Session,joinedload
 from app.db import models
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
 from sqlalchemy import func
 from app.db.db import SessionLocal
 import gspread
@@ -18,7 +18,7 @@ def get_user_by_email(db: Session, email: str):
 def get_task(db: Session, track_id: int, task_no: int):
     return db.query(models.Task).filter_by(track_id=track_id, task_no=task_no).first()
 
-def submit_task(db: Session, mentee_id: int, task_id: int, reference_link: str, start_date: date, commit_hash: str):
+def submit_task(db: Session, mentee_id: int, task_id: int, start_date: date, commit_hash: str):
     existing = db.query(models.Submission).filter_by(mentee_id=mentee_id, task_id=task_id).first()
     if existing:
         return None  # Already submitted
@@ -30,63 +30,57 @@ def submit_task(db: Session, mentee_id: int, task_id: int, reference_link: str, 
         raise Exception("Task not found")
     
     # convert start_date into a datetime object
-    start_date = datetime.combine(start_date, datetime.min.time()) 
+    start_date = start_date
     deadline = start_date + timedelta(days=task.deadline_days)
-    submitted_at = datetime.now()
+    submitted_at = date.today()
 
     # Check if the submission is late
     if deadline >= submitted_at:
-        submitted_late = False
-    elif deadline + timedelta(hours=12) >= submitted_at:
-        submitted_late = True
+        submission = models.Submission(
+            mentee_id=mentee_id,
+            task_id=task.id,
+            task_name=task.title,     
+            task_no=task.task_no,    
+            submitted_at=date.today(),
+            status="submitted",
+            start_date=start_date,
+            commit_hash = commit_hash
+        )
+
+        credentials = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
+        client = gspread.authorize(credentials)
+        if(task.track_id == 1):
+            sheet = client.open("Copy of Praveshan 2025 Master DB").worksheet("S1 Submissions")
+            cell = sheet.find(mentee.name)
+            if not cell:
+                name_column = sheet.col_values(1)
+                row = len(name_column) + 1
+                sheet.update_cell(row, 1, mentee.name)
+                sheet.update_cell(row, task.task_no+2, commit_hash)
+            else:
+                row = cell.row
+                sheet.update_cell(row, task.task_no+2, commit_hash)
+        elif(task.track_id == 2):
+            sheet = client.open("Copy of Praveshan 2025 Master DB").worksheet("S2 Submissions")
+            cell = sheet.find(mentee.name)
+            if not cell:
+                name_column = sheet.col_values(1)
+                row = len(name_column) + 1
+                sheet.update_cell(row, 1, mentee.name)
+                sheet.update_cell(row, task.task_no+2, commit_hash)
+            else:
+                row = cell.row
+                sheet.update_cell(row, task.task_no+2, commit_hash)
+        
+        
+
+        db.add(submission)
+        db.commit()
+        db.refresh(submission)
+        
+        return submission
     else:
         return "late submission not allowed"
-
-    submission = models.Submission(
-        mentee_id=mentee_id,
-        task_id=task.id,
-        task_name=task.title,     
-        task_no=task.task_no,    
-        reference_link=reference_link,
-        submitted_at=date.today(),
-        status="submitted",
-        start_date=start_date,
-        submitted_late=submitted_late,
-        commit_hash = commit_hash
-    )
-
-    credentials = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
-    client = gspread.authorize(credentials)
-    if(task.track_id == 1):
-        sheet = client.open("Copy of Praveshan 2025 Master DB").worksheet("S1 Submissions")
-        cell = sheet.find(mentee.name)
-        if not cell:
-            name_column = sheet.col_values(1)
-            row = len(name_column) + 1
-            sheet.update_cell(row, 1, mentee.name)
-            sheet.update_cell(row, task.task_no+2, commit_hash)
-        else:
-            row = cell.row
-            sheet.update_cell(row, task.task_no+2, commit_hash)
-    elif(task.track_id == 2):
-        sheet = client.open("Copy of Praveshan 2025 Master DB").worksheet("S2 Submissions")
-        cell = sheet.find(mentee.name)
-        if not cell:
-            name_column = sheet.col_values(1)
-            row = len(name_column) + 1
-            sheet.update_cell(row, 1, mentee.name)
-            sheet.update_cell(row, task.task_no+2, commit_hash)
-        else:
-            row = cell.row
-            sheet.update_cell(row, task.task_no+2, commit_hash)
-    
-    
-
-    db.add(submission)
-    db.commit()
-    db.refresh(submission)
-    
-    return submission
 
 def approve_submission(db: Session, submission_id: int, mentor_feedback: str, status: str):
     sub = db.query(models.Submission).filter_by(id=submission_id).first()
@@ -156,7 +150,6 @@ def get_submissions_for_user(db: Session, email: str, track_id: Optional[int] = 
             task_id=sub.task_id,
             task_name=sub.task_name,
             task_no=sub.task_no,
-            reference_link=sub.reference_link,
             status=sub.status,
             submitted_at=sub.submitted_at.date() if sub.submitted_at else None,
             approved_at=sub.approved_at.date() if sub.approved_at else None,
