@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 config = context.config
-DATABASE_URL = os.getenv("AMMENTOR_DB_URL")
+DATABASE_URL = os.getenv("DATABASE_URL")
 config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 from app.db.db import Base
