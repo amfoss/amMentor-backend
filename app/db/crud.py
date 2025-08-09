@@ -3,7 +3,6 @@ from datetime import date, timedelta
 import os, json
 
 import gspread
-from gspread.exceptions import CellNotFound
 from oauth2client.service_account import ServiceAccountCredentials
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -47,10 +46,12 @@ def submit_task(db: Session, mentee_id: int, task_id: int, start_date: date, com
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise Exception("Task not found")
+
     submitted_at = date.today()
     deadline = start_date + timedelta(days=task.deadline_days or 0) if task.deadline_days else None
     if deadline and submitted_at > deadline:
         return "late submission not allowed"
+
     submission = models.Submission(
         mentee_id=mentee_id,
         task_id=task.id,
@@ -61,19 +62,23 @@ def submit_task(db: Session, mentee_id: int, task_id: int, start_date: date, com
         start_date=start_date,
         commit_hash=commit_hash,
     )
+
     client = _gspread_client()
     if task.track_id in (1, 2):
         sheet = client.open("Copy of Praveshan 2025 Master DB").worksheet(
             "S1 Submissions" if task.track_id == 1 else "S2 Submissions"
         )
+
+        # find/create row for mentee.name in column A without using CellNotFound
+        name_column = sheet.col_values(1)
         try:
-            cell = sheet.find(mentee.name)
-            row = cell.row
-        except CellNotFound:
-            name_column = sheet.col_values(1)
+            row = name_column.index(mentee.name) + 1  # 1-based row
+        except ValueError:
             row = len(name_column) + 1 if name_column else 1
             sheet.update_cell(row, 1, mentee.name)
+
         sheet.update_cell(row, task.task_no + 2, commit_hash)
+
     db.add(submission)
     db.commit()
     db.refresh(submission)
