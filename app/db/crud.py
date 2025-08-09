@@ -108,7 +108,7 @@ def get_leaderboard_data(db: Session, track_id: int):
         )
         .join(models.Submission, models.Submission.mentee_id == models.User.id)
         .join(models.Task, models.Submission.task_id == models.Task.id)
-        .filter(models.Submission.status == "approved")
+        .filter(models.Submission.status == "submitted")
         .filter(models.Task.track_id == track_id)
         .group_by(models.User.id)
         .order_by(func.sum(models.Task.points).desc())
