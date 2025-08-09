@@ -148,6 +148,7 @@ def get_submissions_for_user(db: Session, email: str, track_id: Optional[int] = 
             approved_at=_to_date(sub.approved_at),
             mentor_feedback=sub.mentor_feedback,
             start_date=_to_date(sub.start_date),
+            commit_hash=sub.commit_hash, 
         )
         for sub in submissions
     ]
