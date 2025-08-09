@@ -68,8 +68,6 @@ def submit_task(db: Session, mentee_id: int, task_id: int, start_date: date, com
         sheet = client.open("Copy of Praveshan 2025 Master DB").worksheet(
             "S1 Submissions" if task.track_id == 1 else "S2 Submissions"
         )
-
-        # find/create row for mentee.name in column A without using CellNotFound
         name_column = sheet.col_values(1)
         try:
             row = name_column.index(mentee.name) + 1  # 1-based row
@@ -156,8 +154,8 @@ def get_submissions_for_user(db: Session, email: str, track_id: Optional[int] = 
 
 def get_sheet_data():
     client = _gspread_client()
-    worksheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Praveshan Phase 3")
-    expected_headers = ["Name", "Email Address"]
+    worksheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("P1-Mapping")
+    expected_headers = ["Full name", "Email address"]
     return worksheet.get_all_records(expected_headers=expected_headers)
 
 def sync_users_from_sheet():
@@ -166,8 +164,8 @@ def sync_users_from_sheet():
         rows = get_sheet_data()
         inserted_count = 0
         for row in rows:
-            email = row.get("Email Address", "").strip()
-            name = row.get("Name", "").strip()
+            email = row.get("Email address", "").strip()
+            name = row.get("Full name", "").strip()
             if not email or not name:
                 continue
             if get_user_by_email(db, email):
