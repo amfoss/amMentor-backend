@@ -1,16 +1,37 @@
-from typing import Optional
-from app.schemas.submission import SubmissionOut
-from sqlalchemy.orm import Session,joinedload
-from app.db import models
+from typing import Optional, List
 from datetime import date, timedelta
-from sqlalchemy import func
-from app.db.db import SessionLocal
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-import os
+import os, json
 
-SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-CREDS_FILE = "credentials.json"
+import gspread
+from gspread.exceptions import CellNotFound
+from oauth2client.service_account import ServiceAccountCredentials
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+
+from app.schemas.submission import SubmissionOut
+from app.db import models
+from app.db.db import SessionLocal
+
+SCOPE = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
+
+def _gspread_client():
+    raw = os.getenv("GOOGLE_CREDENTIALS_JSON")
+    if not raw:
+        raise RuntimeError("Missing GOOGLE_CREDENTIALS_JSON in environment")
+    raw = raw.strip().strip("'").strip('"')
+    creds_dict = json.loads(raw)
+    credentials = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scopes=SCOPE)
+    return gspread.authorize(credentials)
+
+def _to_date(d):
+    if d is None:
+        return None
+    if isinstance(d, date):
+        return d
+    return getattr(d, "date", lambda: None)()
 
 def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
@@ -21,91 +42,66 @@ def get_task(db: Session, track_id: int, task_no: int):
 def submit_task(db: Session, mentee_id: int, task_id: int, start_date: date, commit_hash: str):
     existing = db.query(models.Submission).filter_by(mentee_id=mentee_id, task_id=task_id).first()
     if existing:
-        return None  # Already submitted
-    
+        return None
     mentee = db.query(models.User).filter(models.User.id == mentee_id).first()
-
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise Exception("Task not found")
-    
-    # convert start_date into a datetime object
-    start_date = start_date
-    deadline = start_date + timedelta(days=task.deadline_days)
     submitted_at = date.today()
-
-    # Check if the submission is late
-    if deadline >= submitted_at:
-        submission = models.Submission(
-            mentee_id=mentee_id,
-            task_id=task.id,
-            task_name=task.title,     
-            task_no=task.task_no,    
-            submitted_at=date.today(),
-            status="submitted",
-            start_date=start_date,
-            commit_hash = commit_hash
-        )
-
-        credentials = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
-        client = gspread.authorize(credentials)
-        if(task.track_id == 1):
-            sheet = client.open("Copy of Praveshan 2025 Master DB").worksheet("S1 Submissions")
-            cell = sheet.find(mentee.name)
-            if not cell:
-                name_column = sheet.col_values(1)
-                row = len(name_column) + 1
-                sheet.update_cell(row, 1, mentee.name)
-                sheet.update_cell(row, task.task_no+2, commit_hash)
-            else:
-                row = cell.row
-                sheet.update_cell(row, task.task_no+2, commit_hash)
-        elif(task.track_id == 2):
-            sheet = client.open("Copy of Praveshan 2025 Master DB").worksheet("S2 Submissions")
-            cell = sheet.find(mentee.name)
-            if not cell:
-                name_column = sheet.col_values(1)
-                row = len(name_column) + 1
-                sheet.update_cell(row, 1, mentee.name)
-                sheet.update_cell(row, task.task_no+2, commit_hash)
-            else:
-                row = cell.row
-                sheet.update_cell(row, task.task_no+2, commit_hash)
-        
-        
-
-        db.add(submission)
-        db.commit()
-        db.refresh(submission)
-        
-        return submission
-    else:
+    deadline = start_date + timedelta(days=task.deadline_days or 0) if task.deadline_days else None
+    if deadline and submitted_at > deadline:
         return "late submission not allowed"
+    submission = models.Submission(
+        mentee_id=mentee_id,
+        task_id=task.id,
+        task_name=task.title,
+        task_no=task.task_no,
+        submitted_at=submitted_at,
+        status="submitted",
+        start_date=start_date,
+        commit_hash=commit_hash,
+    )
+    client = _gspread_client()
+    if task.track_id in (1, 2):
+        sheet = client.open("Copy of Praveshan 2025 Master DB").worksheet(
+            "S1 Submissions" if task.track_id == 1 else "S2 Submissions"
+        )
+        try:
+            cell = sheet.find(mentee.name)
+            row = cell.row
+        except CellNotFound:
+            name_column = sheet.col_values(1)
+            row = len(name_column) + 1 if name_column else 1
+            sheet.update_cell(row, 1, mentee.name)
+        sheet.update_cell(row, task.task_no + 2, commit_hash)
+    db.add(submission)
+    db.commit()
+    db.refresh(submission)
+    return submission
 
 def approve_submission(db: Session, submission_id: int, mentor_feedback: str, status: str):
     sub = db.query(models.Submission).filter_by(id=submission_id).first()
     if not sub:
         return None
-
     sub.status = status
     sub.mentor_feedback = mentor_feedback
     if status == "approved":
         sub.approved_at = date.today()
-
     db.commit()
     db.refresh(sub)
     return sub
 
 def is_mentor_of(db: Session, mentor_id: int, mentee_id: int):
-    return db.query(models.MentorMenteeMap).filter_by(mentor_id=mentor_id, mentee_id=mentee_id).first() is not None
+    return db.query(models.MentorMenteeMap).filter_by(
+        mentor_id=mentor_id, mentee_id=mentee_id
+    ).first() is not None
 
 def get_leaderboard_data(db: Session, track_id: int):
-
     return (
         db.query(
             models.User.name,
             func.sum(models.Task.points).label("total_points"),
-            func.count(models.Submission.id).label("tasks_completed")
+            func.count(models.Submission.id).label("tasks_completed"),
         )
         .join(models.Submission, models.Submission.mentee_id == models.User.id)
         .join(models.Task, models.Submission.task_id == models.Task.id)
@@ -115,6 +111,7 @@ def get_leaderboard_data(db: Session, track_id: int):
         .order_by(func.sum(models.Task.points).desc())
         .all()
     )
+
 def get_otp_by_email(db, email):
     return db.query(models.OTP).filter(models.OTP.email == email).first()
 
@@ -128,21 +125,14 @@ def create_or_update_otp(db, email, otp, expires_at):
         db.add(entry)
     db.commit()
 
-
-def get_submissions_for_user(db: Session, email: str, track_id: Optional[int] = None) -> list[SubmissionOut]:
+def get_submissions_for_user(db: Session, email: str, track_id: Optional[int] = None) -> List[SubmissionOut]:
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
         return []
-
-    query = db.query(models.Submission).filter(
-        models.Submission.mentee_id == user.id
-    )
-
+    query = db.query(models.Submission).filter(models.Submission.mentee_id == user.id)
     if track_id is not None:
         query = query.join(models.Task).filter(models.Task.track_id == track_id)
-
     submissions = query.all()
-
     return [
         SubmissionOut(
             id=sub.id,
@@ -151,27 +141,24 @@ def get_submissions_for_user(db: Session, email: str, track_id: Optional[int] = 
             task_name=sub.task_name,
             task_no=sub.task_no,
             status=sub.status,
-            submitted_at=sub.submitted_at.date() if sub.submitted_at else None,
-            approved_at=sub.approved_at.date() if sub.approved_at else None,
+            submitted_at=_to_date(sub.submitted_at),
+            approved_at=_to_date(sub.approved_at),
             mentor_feedback=sub.mentor_feedback,
-            start_date=sub.start_date.date() if sub.start_date else None
+            start_date=_to_date(sub.start_date),
         )
         for sub in submissions
     ]
-    
+
 def get_sheet_data():
-    creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
-    client = gspread.authorize(creds)
-    worksheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Praveshan Phase 3") # Change sheet name
+    client = _gspread_client()
+    worksheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Praveshan Phase 3")
     expected_headers = ["Name", "Email Address"]
-    data = worksheet.get_all_records(expected_headers=expected_headers)
-    return data
+    return worksheet.get_all_records(expected_headers=expected_headers)
 
 def sync_users_from_sheet():
     db: Session = SessionLocal()
     try:
-        rows = get_sheet_data() 
-        print(f"Loaded {len(rows)} rows from sheet.")
+        rows = get_sheet_data()
         inserted_count = 0
         for row in rows:
             email = row.get("Email Address", "").strip()
@@ -179,11 +166,10 @@ def sync_users_from_sheet():
             if not email or not name:
                 continue
             if get_user_by_email(db, email):
-                continue 
+                continue
             user = models.User(name=name, email=email, role="mentee")
             db.add(user)
             inserted_count += 1
-
         db.commit()
         print(f"Inserted {inserted_count} new users.")
     except Exception as e:
