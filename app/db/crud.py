@@ -12,6 +12,23 @@ import os
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 CREDS_FILE = "credentials.json"
 
+def mentor_mentee_map(db:Session):
+    mentors=(
+        db.query(models.User).filter(models.User.role == "mentor").all()
+    )
+    mentees=(
+        db.query(models.User).filter(models.User.role == "mentee").all()
+    )
+
+    for mentor in mentors:
+        for mentee in mentees:
+            if not db.query(models.MentorMenteeMap).filter_by(mentor_id=mentor.id, mentee_id=mentee.id).first():
+                map_entry = models.MentorMenteeMap(mentor_id=mentor.id, mentee_id=mentee.id)
+                db.add(map_entry)
+    db.commit()
+    db.refresh(map_entry)
+    return "Mentor Mentee Mapping completed successfully"
+
 def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
