@@ -10,6 +10,7 @@ class User(Base):
     name = Column(String, nullable=False)
     role = Column(String, nullable=False)  # "mentor" or "mentee"
     group_name = Column(String, nullable=True)
+    track = Column(Integer, nullable=False)  # first year or s2+
 
 class Track(Base):
     __tablename__ = "tracks"
