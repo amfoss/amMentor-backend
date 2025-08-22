@@ -12,6 +12,23 @@ import os
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 CREDS_FILE = "credentials.json"
 
+def mentor_mentee_map(db:Session):
+    mentors=(
+        db.query(models.User).filter(models.User.role == "mentor").all()
+    )
+    mentees=(
+        db.query(models.User).filter(models.User.role == "mentee").all()
+    )
+
+    for mentor in mentors:
+        for mentee in mentees:
+            if not db.query(models.MentorMenteeMap).filter_by(mentor_id=mentor.id, mentee_id=mentee.id).first():
+                map_entry = models.MentorMenteeMap(mentor_id=mentor.id, mentee_id=mentee.id)
+                db.add(map_entry)
+    db.commit()
+    db.refresh(map_entry)
+    return "Mentor Mentee Mapping completed successfully"
+
 def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
@@ -50,8 +67,9 @@ def submit_task(db: Session, mentee_id: int, task_id: int, start_date: date, com
         credentials = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
         client = gspread.authorize(credentials)
         if(task.track_id == 1):
-            sheet = client.open("Copy of Praveshan 2025 Master DB").worksheet("S1 Submissions")
+            sheet = client.open("Copy of Praveshan 2025 Master DB").worksheet("S1 Submissions") # Change sheet name
             cell = sheet.find(mentee.name)
+            print(sheet)
             if not cell:
                 name_column = sheet.col_values(1)
                 row = len(name_column) + 1
@@ -61,7 +79,7 @@ def submit_task(db: Session, mentee_id: int, task_id: int, start_date: date, com
                 row = cell.row
                 sheet.update_cell(row, task.task_no+2, commit_hash)
         elif(task.track_id == 2):
-            sheet = client.open("Copy of Praveshan 2025 Master DB").worksheet("S2 Submissions")
+            sheet = client.open("Copy of Praveshan 2025 Master DB").worksheet("S2 Submissions") # Change sheet name
             cell = sheet.find(mentee.name)
             if not cell:
                 name_column = sheet.col_values(1)
@@ -162,8 +180,8 @@ def get_submissions_for_user(db: Session, email: str, track_id: Optional[int] = 
 def get_sheet_data():
     creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
     client = gspread.authorize(creds)
-    worksheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Praveshan Phase 3") # Change sheet name
-    expected_headers = ["Name", "Email Address"]
+    worksheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Copy of P1-Mapping") # Change sheet name
+    expected_headers = ["Name", "Email Address","Faction name"]
     data = worksheet.get_all_records(expected_headers=expected_headers)
     return data
 
@@ -174,19 +192,24 @@ def sync_users_from_sheet():
         print(f"Loaded {len(rows)} rows from sheet.")
         inserted_count = 0
         for row in rows:
+            Faction_name = row.get("Faction name", "")
             email = row.get("Email Address", "").strip()
             name = row.get("Name", "").strip()
             if not email or not name:
                 continue
             if get_user_by_email(db, email):
                 continue 
-            user = models.User(name=name, email=email, role="mentee")
+            if Faction_name=="S2+":
+                track = 2
+            else:
+                track=1
+            user = models.User(name=name, email=email, role="mentee",group_name=Faction_name ,track=track)
             db.add(user)
             inserted_count += 1
-
-        db.commit()
+            db.commit()
         print(f"Inserted {inserted_count} new users.")
     except Exception as e:
         print(f"Error syncing users: {e}")
     finally:
         db.close()
+
