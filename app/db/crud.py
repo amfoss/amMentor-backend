@@ -155,8 +155,8 @@ def get_submissions_for_user(db: Session, email: str, track_id: Optional[int] = 
 
 def get_sheet_data():
     client = _gspread_client()
-    worksheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("P1-Mapping")
-    expected_headers = ["Full name", "Email address"]
+    worksheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Copy of P1-Mapping")
+    expected_headers = ["Full name", "Email address","Faction name","Status"]
     return worksheet.get_all_records(expected_headers=expected_headers)
 
 def sync_users_from_sheet():
@@ -167,16 +167,84 @@ def sync_users_from_sheet():
         for row in rows:
             email = row.get("Email address", "").strip()
             name = row.get("Full name", "").strip()
-            if not email or not name:
+            faction = row.get("Faction name", "").strip()
+            status = row.get("Status", "").strip().lower()
+            if not email or not name or not faction or status == "kicked":
                 continue
             if get_user_by_email(db, email):
                 continue
-            user = models.User(name=name, email=email, role="mentee")
+            user = models.User(name=name, email=email, role="mentee",group_name=faction)
             db.add(user)
             inserted_count += 1
-        db.commit()
+            db.commit()
         print(f"Inserted {inserted_count} new users.")
     except Exception as e:
         print(f"Error syncing users: {e}")
+    finally:
+        db.close()
+
+def mentor_mentee_map():
+    db: Session = SessionLocal()
+    try:
+        mentors = db.query(models.User).filter(models.User.role == "mentor").all()
+        mentees = db.query(models.User).filter(models.User.role == "mentee").all()
+        existing = {
+            (m.mentor_id, m.mentee_id)
+            for m in db.query(models.MentorMenteeMap).all()
+        }
+
+        new_mappings = []
+        for mentor in mentors:
+            for mentee in mentees:
+                if (mentor.id, mentee.id) not in existing:
+                    new_mappings.append(
+                        models.MentorMenteeMap(
+                            mentor_id=mentor.id,
+                            mentee_id=mentee.id,
+                        )
+                    )
+        if new_mappings:
+            db.add_all(new_mappings)
+            db.commit()
+            print(f"Added {len(new_mappings)} new mentor-mentee mappings", flush=True)
+        else:
+            print("No new mappings needed", flush=True)
+
+    except Exception as e:
+        db.rollback()
+        print(f"Error in mentor_mentee_map: {e}", flush=True)
+    finally:
+        db.close()
+
+def delete_users_from_data():
+    db: Session = SessionLocal()   
+    try: 
+        rows = get_sheet_data()
+        deleted_count = 0
+        for row in rows:
+            name = row.get("Full name", "").strip()
+            email = row.get("Email address", "").strip().lower()
+            status = row.get("Status", "").strip().lower()
+            if not name or status != "kicked":
+                continue 
+            query = db.query(models.User)
+            if email:
+                user = query.filter(models.User.email == email).first()
+            else:
+                user = query.filter(models.User.name == name).first()
+            if not user:
+                continue
+            db.query(models.MentorMenteeMap).filter(
+                (models.MentorMenteeMap.mentee_id == user.id) |
+                (models.MentorMenteeMap.mentor_id == user.id)
+            ).delete(synchronize_session=False)
+            db.delete(user)
+            deleted_count += 1
+            print(f"Deleted user {user.name} ({user.email}) and mappings.")
+        db.commit()
+        print(f"Deleted {deleted_count} kicked users and their mappings.")
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting users: {e}")
     finally:
         db.close()
