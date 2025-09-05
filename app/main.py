@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.db.crud import sync_users_from_sheet
+from app.db.crud import sync_users_from_sheet,mentor_mentee_map,delete_users_from_data
 from app.db.db import Base, engine
 from app.routes import auth, progress, tracks, leaderboard, mentors , submissions 
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +19,8 @@ async def start_background_sync():
     async def loop():
         while True:
             sync_users_from_sheet()
+            mentor_mentee_map()
+            delete_users_from_data()
             await asyncio.sleep(60)  
     asyncio.create_task(loop())
 
