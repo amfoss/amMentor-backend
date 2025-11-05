@@ -12,21 +12,21 @@ from sqlalchemy import func
 router = APIRouter()
 
 
-@router.post("/register", response_model=UserOut)
-def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    existing = crud.get_user_by_email(db, user.email)
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
+# @router.post("/register", response_model=UserOut)
+# def register_user(user: UserCreate, db: Session = Depends(get_db)):
+#     existing = crud.get_user_by_email(db, user.email)
+#     if existing:
+#         raise HTTPException(status_code=400, detail="Email already registered")
 
-    new_user = models.User(
-        email=user.email,
-        name=user.name,
-        role=user.role
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return new_user
+#     new_user = models.User(
+#         email=user.email,
+#         name=user.name,
+#         role=user.role
+#     )
+#     db.add(new_user)
+#     db.commit()
+#     db.refresh(new_user)
+#     return new_user
 @router.get("/send-otp/{email}")
 def send_otp(email: str, db: Session = Depends(get_db)):
     user = crud.get_user_by_email(db, email)
