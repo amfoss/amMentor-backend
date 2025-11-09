@@ -27,7 +27,7 @@ def submit_task(db: Session, mentee_id: int, task_id: int, reference_link: str, 
         task_no=task.task_no,    
         reference_link=reference_link,
         submitted_at=date.today(),
-        status="submitted",
+        status="submitted".lower(),
         start_date=start_date,
     )
 
@@ -73,7 +73,7 @@ def get_leaderboard_data(db: Session, track_id: int):
         )
         .join(models.Submission, models.Submission.mentee_id == models.User.id)
         .join(models.Task, models.Submission.task_id == models.Task.id)
-        .filter(models.Submission.status == "approved")
+        .filter(func.lower(models.Submission.status) == "approved")
         .filter(models.Task.track_id == track_id)
         .group_by(models.User.id)
         .order_by(func.sum(models.Task.points).desc())
