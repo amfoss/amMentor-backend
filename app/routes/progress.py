@@ -46,6 +46,7 @@ def approve_task(data: SubmissionApproval, db: Session = Depends(get_db)):
         db,
         submission_id=sub.id,
         mentor_feedback=data.mentor_feedback,
-        status=data.status
+        status=data.status,
+        mentor_id=mentor.id
     )
     return updated

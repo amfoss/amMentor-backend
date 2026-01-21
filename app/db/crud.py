@@ -36,20 +36,30 @@ def submit_task(db: Session, mentee_id: int, task_id: int, reference_link: str, 
     db.refresh(submission)
     return submission
 
-def approve_submission(db: Session, submission_id: int, mentor_feedback: str, status: str):
+from datetime import datetime
+from sqlalchemy.orm import joinedload
+
+def approve_submission(db: Session, submission_id: int, mentor_feedback: str, status: str, mentor_id: int):
     sub = db.query(models.Submission).filter_by(id=submission_id).first()
     if not sub:
         return None
 
     sub.status = status
     sub.mentor_feedback = mentor_feedback
+    sub.evaluated_by_mentor_id = mentor_id
+
     if status == "approved":
         sub.approved_at = date.today()
+    else:
+        sub.approved_at = None
 
     db.commit()
-    db.refresh(sub)
-    return sub
-
+    return (
+        db.query(models.Submission)
+        .options(joinedload(models.Submission.evaluated_by_mentor))
+        .filter(models.Submission.id == submission_id)
+        .first()
+    )
 def is_mentor_of(db: Session, mentor_id: int, mentee_id: int):
     return db.query(models.MentorMenteeMap).filter_by(mentor_id=mentor_id, mentee_id=mentee_id).first() is not None
 
@@ -88,28 +98,10 @@ def get_submissions_for_user(db: Session, email: str, track_id: Optional[int] = 
     if not user:
         return []
 
-    query = db.query(models.Submission).filter(
-        models.Submission.mentee_id == user.id
+    submissions = (
+        db.query(models.Submission)
+        .options(joinedload(models.Submission.evaluated_by_mentor))
+        .filter(models.Submission.mentee_id == user.id)
+        .all()
     )
-
-    if track_id is not None:
-        query = query.join(models.Task).filter(models.Task.track_id == track_id)
-
-    submissions = query.all()
-
-    return [
-        SubmissionOut(
-            id=sub.id,
-            mentee_id=sub.mentee_id,
-            task_id=sub.task_id,
-            task_name=sub.task_name,
-            task_no=sub.task_no,
-            reference_link=sub.reference_link,
-            status=sub.status,
-            submitted_at=sub.submitted_at.date() if sub.submitted_at else None,
-            approved_at=sub.approved_at.date() if sub.approved_at else None,
-            mentor_feedback=sub.mentor_feedback,
-            start_date=sub.start_date.date() if sub.start_date else None
-        )
-        for sub in submissions
-    ]
+    return submissions

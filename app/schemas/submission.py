@@ -23,6 +23,9 @@ class SubmissionOut(BaseModel):
     approved_at: Optional[date] = None
     mentor_feedback: Optional[str] = None   
     start_date: date
+    evaluated_by_mentor_id : Optional[int] = None
+    evaluated_by_mentor_name : Optional[str] = None
+    evaluated_by_mentor_email: Optional[str] = None
     class Config:
         orm_mode = True
 

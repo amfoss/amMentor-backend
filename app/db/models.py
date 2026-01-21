@@ -45,8 +45,17 @@ class Submission(Base):
     start_date = Column(DateTime, nullable=False)
     approved_at = Column(DateTime, nullable=True)
     mentor_feedback = Column(Text, nullable=True)
-    mentee = relationship("User")
+    evaluated_by_mentor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    evaluated_by_mentor = relationship("User", foreign_keys=[evaluated_by_mentor_id],lazy="joined")
+    mentee = relationship("User", foreign_keys=[mentee_id], lazy="joined")
     task = relationship("Task")
+    @property
+    def evaluated_by_mentor_name(self):
+        return self.evaluated_by_mentor.name if self.evaluated_by_mentor else None
+
+    @property
+    def evaluated_by_mentor_email(self):
+        return self.evaluated_by_mentor.email if self.evaluated_by_mentor else None
 
 class MentorMenteeMap(Base):
     __tablename__ = "mentor_mentee_map"
