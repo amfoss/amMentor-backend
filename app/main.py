@@ -1,7 +1,7 @@
 from fastapi import FastAPI
-from app.db.db import Base, engine
-from app.routes import auth, progress, tracks, leaderboard, mentors , submissions 
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.routes import auth, progress, tracks, leaderboard, mentors, submissions
 
 app = FastAPI(title="amMentor API")
 
@@ -12,10 +12,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.on_event("startup")
-def on_startup():
-    Base.metadata.create_all(bind=engine)
 
 
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
