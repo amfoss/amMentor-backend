@@ -14,7 +14,7 @@ config.set_main_option("sqlalchemy.url", DATABASE_URL)
 from app.db.db import Base
 import app.db.models
 
-target_metadata = [Base.metadata]
+target_metadata = Base.metadata
 fileConfig(config.config_file_name)
 
 # this is the Alembic Config object, which provides
