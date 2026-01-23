@@ -46,6 +46,7 @@ def approve_submission(db: Session, submission_id: int, mentor_feedback: str, st
     normalized_status = status.strip().lower()
     sub.status = normalized_status
     sub.mentor_feedback = mentor_feedback
+    sub.evaluated_by_mentor_id = mentor_id
     if normalized_status == "approved":
         sub.approved_at = date.today()
     else:
