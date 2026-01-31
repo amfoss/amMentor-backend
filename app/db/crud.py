@@ -10,36 +10,50 @@ def get_user_by_email(db: Session, email: str):
 
 def get_task(db: Session, track_id: int, task_no: int):
     return db.query(models.Task).filter_by(track_id=track_id, task_no=task_no).first()
-
-def submit_task(db: Session, mentee_id: int, task_id: int, reference_link: str, start_date: date):
-    existing = db.query(models.Submission).filter_by(mentee_id=mentee_id, task_id=task_id).first()
-    if existing:
-        return None  # Already submitted
-
+#coded from herreference_link=data.reference_link, start_date=data.start_datee
+def start_task(db: Session,mentee_id: int,task_id: int):
+    start_date = date.today()
+    #Validate Task
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise Exception("Task not found")
-
+    # Alrdy exist
+    exist = db.query(models.Submission).filter_by(task_id = task_id, mentee_id = mentee_id).first()
+    if exist :
+        return None  
     submission = models.Submission(
         mentee_id=mentee_id,
         task_id=task.id,
         task_name=task.title,     
-        task_no=task.task_no,    
-        reference_link=reference_link,
-        submitted_at=date.today(),
-        status="submitted".lower(),
+        task_no=task.task_no,   
+        reference_link="started", #remove it before push
+        status="started".lower(),
         start_date=start_date,
     )
-
     db.add(submission)
     db.commit()
     db.refresh(submission)
     return submission
 
-from datetime import datetime
-from sqlalchemy.orm import joinedload
+def submit_task(db: Session, submission_id: int,reference_link:str):
+    submission = db.query(models.Submission).filter_by(id = submission_id).first()
+    if not submission:
+        raise("Task not started")
+    if submission.status == "submitted":
+        raise("Task Already Submitted")
+    task = db.query(models.Task).filter(models.Task.id == submission.task_id).first()
+    if not task:
+        raise Exception("Task not found")
+    submission.submitted_at=date.today(),
+    submission.status="submitted".lower(),
+    submission.reference_link=reference_link,
+    db.add(submission)
+    db.commit()
+    db.refresh(submission)
+    return submission
 
-def approve_submission(db: Session, submission_id: int, mentor_feedback: str, status: str, mentor_id: int):
+
+def approve_submission(db: Session, submission_id: int, mentor_feedback: str, status: str):
     sub = db.query(models.Submission).filter_by(id=submission_id).first()
     if not sub:
         return None
@@ -60,6 +74,21 @@ def approve_submission(db: Session, submission_id: int, mentor_feedback: str, st
         .filter(models.Submission.id == submission_id)
         .first()
     )
+
+def pause_task(db: Session,submission_id: int,reason: str):
+    pause = db.query(models.Pause).filter(models.Pause.id == submission_id)
+    sub = db.query(models.Submission).filter_by(id=submission_id).first()
+    if pause :
+        raise("Tasked already paused")
+    pause.reason=reason
+    pause.pause_date = date.today()
+    sub.status = "paused"
+    db.add_all([sub, pause])
+    db.commit()
+    db.refresh(sub)
+    db.refresh(pause)
+    return sub
+#coded till here
 def is_mentor_of(db: Session, mentor_id: int, mentee_id: int):
     return db.query(models.MentorMenteeMap).filter_by(mentor_id=mentor_id, mentee_id=mentee_id).first() is not None
 

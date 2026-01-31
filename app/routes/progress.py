@@ -2,14 +2,32 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db import crud, models
 from app.db.db import get_db
-from app.schemas.submission import SubmissionCreate, SubmissionOut, SubmissionApproval
+from app.schemas.submission import SubmissionCreate, SubmissionOut, SubmissionApproval,StartTask
 
 router = APIRouter()
 
-@router.post("/submit-task", response_model=SubmissionOut)
+@router.post("/start-task",response_model=SubmissionOut)
+def start_task(data:StartTask,db:Session=Depends(get_db)):
+
+     # 1. Validate mentee
+    mentee = crud.get_user_by_email(db, data.mentee_email)
+    if not mentee or mentee.role != "mentee":
+        raise HTTPException(status_code=403, detail="Invalid or missing mentee")
+    
+     # 2. Get task
+    task = crud.get_task(db, track_id=data.track_id, task_no=data.task_no)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    # 3. Start task
+    submission =crud.start_task(db=db,mentee_id=mentee.id,task_id=task.id)
+    if not submission:
+        raise HTTPException(status_code=400, detail="Task already Started")
+    return submission
+
+@router.patch("/submit-task", response_model=SubmissionOut)
 def submit_task(data: SubmissionCreate, db: Session = Depends(get_db)):
     # 1. Validate mentee
-    mentee = crud.get_user_by_email(db, data.mentee_email)
+    mentee = crud.get_user_by_email(db, data.mentee_email)#change to mentee
     if not mentee or mentee.role != "mentee":
         raise HTTPException(status_code=403, detail="Invalid or missing mentee")
 
@@ -17,9 +35,8 @@ def submit_task(data: SubmissionCreate, db: Session = Depends(get_db)):
     task = crud.get_task(db, track_id=data.track_id, task_no=data.task_no)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-
     # 3. Submit
-    submission = crud.submit_task(db, mentee_id=mentee.id, task_id=task.id, reference_link=data.reference_link, start_date=data.start_date)
+    submission = crud.submit_task(db,submission_id=data.submission_id,reference_link=data.reference_link)
     if not submission:
         raise HTTPException(status_code=400, detail="Task already submitted")
 

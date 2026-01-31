@@ -9,7 +9,7 @@ class SubmissionBase(BaseModel):
     start_date: date
 class SubmissionCreate(SubmissionBase):
     mentee_email: str
-
+    submission_id : int
 
 class SubmissionOut(BaseModel):
     id: int
@@ -19,10 +19,10 @@ class SubmissionOut(BaseModel):
     task_name: str 
     reference_link: str
     status: str
-    submitted_at: date
+    submitted_at: datetime
     approved_at: Optional[date] = None
     mentor_feedback: Optional[str] = None   
-    start_date: date
+    start_date: datetime
     evaluated_by_mentor_id : Optional[int] = None
     evaluated_by_mentor_name : Optional[str] = None
     evaluated_by_mentor_email: Optional[str] = None
@@ -34,3 +34,8 @@ class SubmissionApproval(BaseModel):
     mentor_email: str
     status: str  # approved, paused, rejected
     mentor_feedback: Optional[str] = None
+
+class StartTask(BaseModel):
+    track_id: int
+    task_no: int
+    mentee_email: str
