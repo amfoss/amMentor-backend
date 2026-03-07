@@ -77,8 +77,20 @@ class OTP(Base):
     email = Column(String, primary_key=True, index=True)
     otp = Column(String, nullable=False)
     expires_at = Column(DateTime, nullable=False)
+   
+class Extend(Base):
+    __tablename__ = "extended"
+    id = Column(Integer,primary_key=True, index=True)
+    submission_id = Column(Integer, ForeignKey("submissions.id"), nullable=False)
+    extended_date = Column(DateTime,nullable = False)
+    reason = Column(Text,nullable= False)
+    extended_by_mentor_id = Column(Integer,ForeignKey("users.id"),nullable = False)
+    extended_by_mentor = relationship("User", foreign_keys=[extended_by_mentor_id],lazy="joined")
+    extended_count = Column(Integer, nullable = False, default=1)
 
 
+
+"""
 class Pause(Base):
     __tablename__ = "pause"
     id = Column(Integer, primary_key=True, index=True)
@@ -86,11 +98,5 @@ class Pause(Base):
     pause_date = Column(DateTime,nullable= False)
     resume_date = Column(DateTime,nullable=True)
     reason = Column(Text,nullable=False)
-
-    
-class Extend(Base):
-    __tablename__ = "extended"
-    id = Column(Integer,primary_key=True, index=True)
-    submission_id = Column(Integer, ForeignKey("submissions.id"), nullable=False)
-    extended_date = Column(DateTime,nullable = False)
-    reason = Column(Text,nullable= False)
+"""
+ 
