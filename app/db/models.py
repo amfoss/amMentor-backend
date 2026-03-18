@@ -10,6 +10,8 @@ class User(Base):
     name = Column(String, nullable=False)
     role = Column(String, nullable=False)  # "mentor" or "mentee"
 
+    deleted_at = Column(DateTime, nullable=True, default=None, index=True)
+    
 class Track(Base):
     __tablename__ = "tracks"
     id = Column(Integer, primary_key=True, index=True)
@@ -60,8 +62,8 @@ class Submission(Base):
 class MentorMenteeMap(Base):
     __tablename__ = "mentor_mentee_map"
     id = Column(Integer, primary_key=True, index=True)
-    mentor_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    mentee_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    mentor_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    mentee_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
     __table_args__ = (UniqueConstraint("mentor_id", "mentee_id", name="unique_mentor_mentee"),)
 
