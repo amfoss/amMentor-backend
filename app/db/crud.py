@@ -104,3 +104,6 @@ def get_submissions_for_user(db: Session, email: str, track_id: Optional[int] = 
         .all()
     )
     return submissions
+
+def get_user_by_id(db: Session, user_id: int):
+    return db.query(models.User).filter(models.User.id == user_id).first()
