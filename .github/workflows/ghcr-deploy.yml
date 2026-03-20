@@ -19,8 +19,26 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        
+      - name: Alembic Sanity Check
+        run: |
+          pip install --no-cache-dir -r requirements.txt
+          
+          echo "Checking for multiple Alembic heads..."
+          HEADS=$(alembic heads | wc -l)
+          
+          if [ "$HEADS" -ne 1 ]; then
+            echo "❌ Multiple Alembic heads detected"
+            alembic heads
+            exit 1
+          fi
+          
+          echo "Checking migration graph..."
+          alembic history > /dev/null
+          
+          echo "✅ Alembic sanity check passed"
 
-      # Uses the `docker/login-action` action to log in to the Github Container Registry
+          # Uses the `docker/login-action` action to log in to the Github Container Registry
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
