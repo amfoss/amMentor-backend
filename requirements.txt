@@ -22,3 +22,4 @@ watchfiles==1.0.5
 websockets==15.0.1
 pydantic[email]
 alembic
+PyJWT==2.10.1

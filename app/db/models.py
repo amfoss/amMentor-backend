@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import Boolean, Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint, CheckConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.db import Base
@@ -8,48 +8,58 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
-    role = Column(String, nullable=False)  # "mentor" or "mentee"
+    is_member = Column(Boolean, nullable=False)
+    is_admin = Column(Boolean, nullable=False)
+    is_faculty = Column(Boolean, nullable=False)
 
     deleted_at = Column(DateTime, nullable=True, default=None, index=True)
     
-class Track(Base):
-    __tablename__ = "tracks"
+class Group(Base):
+    __tablename__ = "groups"
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, unique=True, nullable=False)
+    title = Column(String, nullable=False)
     description = Column(Text)
 
 class Task(Base):
     __tablename__ = "tasks"
     id = Column(Integer, primary_key=True, index=True)
-    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False)
-    task_no = Column(Integer, nullable=False)
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=False)
     title = Column(String, nullable=False)
     description = Column(Text)
-    points = Column(Integer, default=10)
     deadline_days = Column(Integer, nullable=True)
 
-    __table_args__ = (UniqueConstraint("track_id", "task_no", name="unique_track_task"),)
+    assign_everyone = Column(Boolean, nullable=False)
 
-    track = relationship("Track", back_populates="tasks")
+    individual_task = Column(Boolean, nullable=False)
+    assignee_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
-Track.tasks = relationship("Task", back_populates="track", cascade="all, delete-orphan")
+    __table_args__ = (UniqueConstraint("group_id", "title", name="unique_group_task"),
+                        CheckConstraint(
+                            "(individual_task = TRUE AND user_id IS NOT NULL) OR (individual_task = FALSE AND user_id IS NULL)",
+                            name="check_individual_task_has_user"
+                        ),
+                    ) 
+
+    group = relationship("Group", back_populates="tasks")
+    user = relationship("User", back_populates="tasks")
+
+Group.tasks = relationship("Task", back_populates="group", cascade="all, delete-orphan")
 
 class Submission(Base):
     __tablename__ = "submissions"
     id = Column(Integer, primary_key=True, index=True)
-    mentee_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    submitee_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
-    task_name = Column(String, nullable=False) 
-    task_no = Column(Integer, nullable=False) 
     reference_link = Column(Text, nullable=False)
-    status = Column(String, default="submitted")  # submitted / approved / paused / rejected
+    explainantion = Column(Text, nullable=True)
+    status = Column(String, default="submitted")  # submitted / approved / ongoing / extended / rejected
     submitted_at = Column(DateTime, default=datetime.utcnow)
-    start_date = Column(DateTime, nullable=False)
     approved_at = Column(DateTime, nullable=True)
     mentor_feedback = Column(Text, nullable=True)
     evaluated_by_mentor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    submitee = relationship("User", foreign_keys=[submitee_id], lazy="joined")
     evaluated_by_mentor = relationship("User", foreign_keys=[evaluated_by_mentor_id],lazy="joined")
-    mentee = relationship("User", foreign_keys=[mentee_id], lazy="joined")
+
     task = relationship("Task")
     @property
     def evaluated_by_mentor_name(self):
@@ -59,21 +69,15 @@ class Submission(Base):
     def evaluated_by_mentor_email(self):
         return self.evaluated_by_mentor.email if self.evaluated_by_mentor else None
 
-class MentorMenteeMap(Base):
-    __tablename__ = "mentor_mentee_map"
+class UserGroupMap(Base):
+    __tablename__ = "user_group_map"
     id = Column(Integer, primary_key=True, index=True)
-    mentor_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    mentee_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=False, index=True)
+    role = Column(String, nullable=False)  # admin / member / mentor
 
-    __table_args__ = (UniqueConstraint("mentor_id", "mentee_id", name="unique_mentor_mentee"),)
+    __table_args__ = (UniqueConstraint("user_id", "group_id", name="unique_user_group"),)
 
-class LeaderboardEntry(Base):
-    __tablename__ = "leaderboard"
-    id = Column(Integer, primary_key=True, index=True)
-    track_id = Column(Integer, ForeignKey("tracks.id"))
-    mentee_id = Column(Integer, ForeignKey("users.id"))
-    total_points = Column(Integer, default=0)
-    tasks_completed = Column(Integer, default=0)
 class OTP(Base):
     __tablename__ = "otp"
 

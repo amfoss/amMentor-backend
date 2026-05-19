@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routes import auth, progress, tracks, leaderboard, mentors, submissions, delete
+from app.routes import auth, group, progress, leaderboard, mentors, submissions, delete
 
 app = FastAPI(title="amMentor API")
 
@@ -16,7 +16,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 app.include_router(progress.router, prefix="/progress", tags=["Progress"])
-app.include_router(tracks.router, prefix="/tracks", tags=["Tracks"])
+app.include_router(group.router, prefix="/tracks", tags=["Tracks"])
 app.include_router(leaderboard.router, prefix="/leaderboard", tags=["Leaderboard"])
 app.include_router(mentors.router, prefix="/mentors", tags=["Mentors"])
 app.include_router(submissions.router, prefix="/submissions", tags=["Submissions"])

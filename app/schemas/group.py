@@ -1,15 +1,14 @@
 from pydantic import BaseModel
 from typing import Optional
 
-class TrackBase(BaseModel):
+class GroupCreate(BaseModel):
     title: str
     description: Optional[str] = None
 
-class TrackCreate(TrackBase):
-    pass
-
-class TrackOut(TrackBase):
+class GroupOut(BaseModel):
     id: int
+    title: str
+    description: Optional[str]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
